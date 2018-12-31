@@ -1,10 +1,13 @@
 import shelve
 from datetime import datetime
+import time
 
 import pytz
 from six.moves import input
 
 from pyecobee import *
+
+from influxdb import InfluxDBClient
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -88,8 +91,43 @@ if __name__ == '__main__':
     elif now_utc > ecobee_service.access_token_expires_on:
         token_response = ecobee_service.refresh_tokens()
 
-    thermostat_summary_response = ecobee_service.request_thermostats_summary(selection=Selection(
+
+while true
+
+    try:
+        thermostat_summary_response = ecobee_service.request_thermostats_summary(selection=Selection(
         selection_type=SelectionType.REGISTERED.value,
         selection_match='',
-        include_equipment_status=True))
-logger.info(thermostat_summary_response.pretty_format())
+        include_equipment_status=True,
+        include_alerts=True,
+        include_device=True, 
+        include_electricity=False, 
+        include_equipment_status=True,
+        include_events=True, 
+        include_extended_runtime=True, 
+        include_house_details=True,
+        include_location=True, 
+        include_management=False, 
+        include_notification_settings=True,
+        include_oem_cfg=False, 
+        include_privacy=False, 
+        include_program=True, 
+        include_reminders=False,
+        include_runtime=True, 
+        include_security_settings=False, 
+        include_sensors=True,
+        include_settings=True, 
+        include_technician=False, 
+        include_utility=False, 
+        include_version=False,
+        include_weather=False))
+
+    except EcobeeApiException as e:
+        if e.status_code == 14:
+            token_response = ecobee_service.refresh_tokens()
+    thermostat_summary_response
+    time.sleep(300)
+
+
+
+
