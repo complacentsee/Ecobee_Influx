@@ -71,7 +71,7 @@ if __name__ == '__main__':
         ecobee_service = pyecobee_db[thermostat_name]
     except KeyError:
         application_key = input('Please enter the API key of your ecobee App: ')
-        ecobee_service = EcobeeService(thermostat_name=thermostat_name, application_key='UbkKIGiWoolddEEoMQr3rCa4ukixawho')
+        ecobee_service = EcobeeService(thermostat_name=thermostat_name, application_key=application_key)
     finally:
         pyecobee_db.close()
 
