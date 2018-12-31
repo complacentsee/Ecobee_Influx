@@ -1,7 +1,7 @@
 import shelve
 from datetime import datetime
 
-#import pytz
+import pytz
 from six.moves import input
 
 from pyecobee import *
