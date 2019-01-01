@@ -34,21 +34,21 @@ influxhost = '192.168.0.101'
 influxport = '8086'
 influxdbname = 'ecobee'
 
-#grab data from persistance storage
+#Methods for storing influx db data into persistance storage
+
+
+#Methods to grab data from persistance storage
 
 def persist_to_shelf(file_name, ecobee_service):
     pyecobee_db = shelve.open(file_name, protocol=2)
     pyecobee_db[ecobee_service.thermostat_name] = ecobee_service
     pyecobee_db.close()
 
-
 def refresh_tokens(ecobee_service):
     token_response = ecobee_service.refresh_tokens()
     logger.debug('TokenResponse returned from ecobee_service.refresh_tokens():\n{0}'.format(
         token_response.pretty_format()))
-
     persist_to_shelf('pyecobee_db', ecobee_service)
-
 
 def request_tokens(ecobee_service):
     token_response = ecobee_service.request_tokens()
@@ -56,7 +56,6 @@ def request_tokens(ecobee_service):
         token_response.pretty_format()))
 
     persist_to_shelf('pyecobee_db', ecobee_service)
-
 
 def authorize(ecobee_service):
     authorize_response = ecobee_service.authorize()
@@ -99,9 +98,16 @@ if __name__ == '__main__':
     elif now_utc > ecobee_service.access_token_expires_on:
         token_response = ecobee_service.refresh_tokens()
 
-influx_client = InfluxDBClient(host=influxhost, port=influxport, database=influxdbname)
+    influx_client = InfluxDBClient(host=influxhost, port=influxport, database=influxdbname)
 
 while True:
+
+    now_utc = datetime.now(pytz.utc)
+    if now_utc > ecobee_service.refresh_token_expires_on:
+        authorize(ecobee_service)
+        request_tokens(ecobee_service)
+    elif now_utc > ecobee_service.access_token_expires_on:
+        token_response = ecobee_service.refresh_tokens()
 
     try:
         thermostat_response = ecobee_service.request_thermostats(selection=Selection(
@@ -130,13 +136,7 @@ while True:
 #        include_version=False,
 #        include_weather=False
 	))
-    except EcobeeApiException as e:
-        if e.status_code == 14:
-            token_response = ecobee_service.refresh_tokens()
- 
-    logger.info(thermostat_response.pretty_format())
-    assert thermostat_response.status.code == 0, 'Failure while executing request_thermostats:\n{0}'.format(    
-      	   thermostat_response.pretty_format())
+    thermostat_response.pretty_format()
 
 #    influx_client.write_points(thermostat_response.pretty_format())
 #    parsed_response = json.loads(thermostat_response.pretty_format())
