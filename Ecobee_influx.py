@@ -12,7 +12,7 @@ import simplejson as json
 from influxdb import InfluxDBClient
 
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # create a file handler
@@ -48,21 +48,21 @@ def refresh_tokens(ecobee_service):
     token_response = ecobee_service.refresh_tokens()
     logger.debug('TokenResponse returned from ecobee_service.refresh_tokens():\n{0}'.format(
         token_response.pretty_format()))
-    persist_to_shelf('pyecobee_db', ecobee_service)
+    persist_to_shelf(file_name, ecobee_service)
 
 def request_tokens(ecobee_service):
     token_response = ecobee_service.request_tokens()
     logger.debug('TokenResponse returned from ecobee_service.request_tokens():\n{0}'.format(
         token_response.pretty_format()))
 
-    persist_to_shelf('pyecobee_db', ecobee_service)
+    persist_to_shelf(file_name, ecobee_service)
 
 def authorize(ecobee_service):
     authorize_response = ecobee_service.authorize()
     logger.debug('AutorizeResponse returned from ecobee_service.authorize():\n{0}'.format(
         authorize_response.pretty_format()))
 
-    persist_to_shelf('pyecobee_db', ecobee_service)
+    persist_to_shelf(file_name, ecobee_service)
 
     logger.info('Please goto ecobee.com, login to the web portal and click on the settings tab. Ensure the My '
                 'Apps widget is enabled. If it is not click on the My Apps option in the menu on the left. In the '
@@ -77,26 +77,45 @@ def authorize(ecobee_service):
 if __name__ == '__main__':
     thermostat_name = 'Home'
     try:
-        pyecobee_db = shelve.open('pyecobee_db', protocol=2)
+        pyecobee_db = shelve.open(file_name, protocol=2)
         ecobee_service = pyecobee_db[thermostat_name]
+        print(ecobee_service.access_token)
+        print(ecobee_service.refresh_token)
     except KeyError:
         application_key = input('Please enter the API key of your ecobee App: ')
         ecobee_service = EcobeeService(thermostat_name=thermostat_name, application_key=application_key)
+        print('KeyError')
     finally:
         pyecobee_db.close()
+        print('databased closed')
 
     if not ecobee_service.authorization_token:
         authorize(ecobee_service)
+        print('initial authorization token')
+        print(ecobee_service.access_token)
+        print(ecobee_service.refresh_token)
 
     if not ecobee_service.access_token:
         request_tokens(ecobee_service)
+        print('initial access token')
+        print(ecobee_service.access_token)
+        print(ecobee_service.refresh_token)
+
 
     now_utc = datetime.now(pytz.utc)
+    print('Current time is ', now_utc)
+    print('Refresh Token expires ', ecobee_service.refresh_token_expires_on)
+    print('Access Token expires ', ecobee_service.access_token_expires_on)
+
     if now_utc > ecobee_service.refresh_token_expires_on:
+        logger.info('Reathorize app.')
+        print('Reathorize app.')        
         authorize(ecobee_service)
+        logger.info('Request updated tokens.')
+        print('Request updated tokens.')
         request_tokens(ecobee_service)
     elif now_utc > ecobee_service.access_token_expires_on:
-        token_response = ecobee_service.refresh_tokens()
+        request_tokens(ecobee_service)
 
     influx_client = InfluxDBClient(host=influxhost, port=influxport, database=influxdbname)
 
@@ -104,15 +123,15 @@ while True:
 
     now_utc = datetime.now(pytz.utc)
     if now_utc > ecobee_service.refresh_token_expires_on:
-        authorize(ecobee_service)
+    authorize(ecobee_service)
+    request_tokens(ecobee_service)
+    elif now_utc > ecobee_service.access_token_expires_on:  
         request_tokens(ecobee_service)
-    elif now_utc > ecobee_service.access_token_expires_on:
-        token_response = ecobee_service.refresh_tokens()
 
-    try:
-        thermostat_response = ecobee_service.request_thermostats(selection=Selection(
-        selection_type=SelectionType.REGISTERED.value,
-        selection_match='',
+
+    thermostat_response = ecobee_service.request_thermostats(selection=Selection(
+    selection_type=SelectionType.REGISTERED.value,
+    selection_match='',
 #        include_equipment_status=True,
 #        include_alerts=True,
 #        include_device=True, 
@@ -135,15 +154,10 @@ while True:
 #        include_utility=False, 
 #        include_version=False,
 #        include_weather=False
-	))
-    thermostat_response.pretty_format()
+    ))
 
+#    print( thermostat_response.pretty_format())
 #    influx_client.write_points(thermostat_response.pretty_format())
 #    parsed_response = json.loads(thermostat_response.pretty_format())
 #    logger.info(parsed_response['thermostatList'])
-#    print(thermostat_response.extendedRuntime())
     time.sleep(300)
-
-
-
-
